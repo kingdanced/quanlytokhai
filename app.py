@@ -52,13 +52,21 @@ if uploaded_files:
         data_list.append({"File": f.name, "MST": res[0], "Số TK": res[1], "Ngày": res[2], "Mã HQ": res[3]})
     
     df_result = pd.DataFrame(data_list)
-    if uploaded_files:
-    data_list = []
+if uploaded_files:
+    # Tất cả các dòng dưới đây phải được thụt lề vào 4 khoảng trắng
+    data_list = []  
     for f in uploaded_files:
         res = trich_xuat_du_lieu(f)
-        data_list.append({"File": f.name, "MST": res[0], "Số TK": res[1], "Ngày": res[2], "Mã HQ": res[3]})
+        data_list.append({
+            "File": f.name, 
+            "MST": res[0], 
+            "Số TK": res[1], 
+            "Ngày": res[2], 
+            "Mã HQ": res[3]
+        })
     
     df_result = pd.DataFrame(data_list)
+    # Tiếp tục các lệnh hiển thị...
 
     # --- HIỂN THỊ DỌC ---
     st.subheader("📋 Chi tiết thông tin trích xuất")
@@ -124,5 +132,6 @@ if uploaded_files:
             driver.quit() # Đóng trình duyệt ẩn
         except Exception as e:
             st.error(f"Lỗi khởi tạo trình duyệt trên Cloud: {e}")
+
 
 
