@@ -1,4 +1,4 @@
-import streamlit as st
+    import streamlit as st
 import pandas as pd
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -52,9 +52,39 @@ if uploaded_files:
         data_list.append({"File": f.name, "MST": res[0], "Số TK": res[1], "Ngày": res[2], "Mã HQ": res[3]})
     
     df_result = pd.DataFrame(data_list)
-    st.table(df_result)
+    if uploaded_files:
+    data_list = []
+    for f in uploaded_files:
+        res = trich_xuat_du_lieu(f)
+        data_list.append({"File": f.name, "MST": res[0], "Số TK": res[1], "Ngày": res[2], "Mã HQ": res[3]})
+    
+    df_result = pd.DataFrame(data_list)
 
-    target_file = st.selectbox("Chọn file muốn chạy:", df_result["File"])
+    # --- HIỂN THỊ DỌC ---
+    st.subheader("📋 Chi tiết thông tin trích xuất")
+    
+    # Cho người dùng chọn file trước
+    target_file = st.selectbox("Chọn file muốn kiểm tra & chạy:", df_result["File"])
+    
+    # Lấy dữ liệu của file được chọn
+    row = df_result[df_result["File"] == target_file].iloc[0]
+
+    # Tạo giao diện hiển thị dọc bằng Markdown và Columns
+    col1, col2 = st.columns([1, 2])
+    with col1:
+        st.info(f"""
+        **Mã số thuế:** **Số tờ khai:** **Ngày đăng ký:** **Mã Hải quan:**
+        """)
+    with col2:
+        st.success(f"""
+        {row['MST']}  
+        {row['Số TK']}  
+        {row['Ngày']}  
+        {row['Mã HQ']}
+        """)
+
+    if st.button("🔥 Chạy trên Server"):
+        # Giữ nguyên phần code Selenium của bạn ở đây...
 
     if st.button("🔥 Chạy trên Server"):
         row = df_result[df_result["File"] == target_file].iloc[0]
@@ -94,3 +124,4 @@ if uploaded_files:
             driver.quit() # Đóng trình duyệt ẩn
         except Exception as e:
             st.error(f"Lỗi khởi tạo trình duyệt trên Cloud: {e}")
+
