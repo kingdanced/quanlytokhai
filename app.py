@@ -1,4 +1,4 @@
-    import streamlit as st
+import streamlit as st
 import pandas as pd
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -124,4 +124,5 @@ if uploaded_files:
             driver.quit() # Đóng trình duyệt ẩn
         except Exception as e:
             st.error(f"Lỗi khởi tạo trình duyệt trên Cloud: {e}")
+
 
