@@ -9,11 +9,11 @@ from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 import time
 
-# --- CẤU HÌNH GIAO DIỆN ---
-st.set_page_config(page_title="Quản Lý Tờ Khai", layout="wide")
-st.title("🚀 Hệ Thống Điền Tờ Khai (Chế độ Chủ động)")
+# --- GIAO DIỆN ---
+st.set_page_config(page_title="Hệ Thống Tờ Khai", layout="wide")
+st.title("🚀 Tra Cứu Tờ Khai Online")
 
-# --- HÀM TRÍCH XUẤT DỮ LIỆU ---
+# (Các hàm trích xuất dữ liệu giữ nguyên như cũ...)
 def lay_gia_tri_theo_tu_khoa(df, tu_khoa, sau_dong_chu=None):
     bat_dau_tim = False if sau_dong_chu else True
     for r in range(len(df)):
@@ -35,57 +35,62 @@ def lay_gia_tri_theo_tu_khoa(df, tu_khoa, sau_dong_chu=None):
 def trich_xuat_du_lieu(file_buffer):
     df = pd.read_excel(file_buffer, header=None).fillna("")
     ma_dn = lay_gia_tri_theo_tu_khoa(df, "Mã", sau_dong_chu="Người xuất khẩu")
-    if not ma_dn:
-        ma_dn = lay_gia_tri_theo_tu_khoa(df, "Mã", sau_dong_chu="Người nhập khẩu")
+    if not ma_dn: ma_dn = lay_gia_tri_theo_tu_khoa(df, "Mã", sau_dong_chu="Người nhập khẩu")
     so_tk = lay_gia_tri_theo_tu_khoa(df, "Số tờ khai")
     ngay_raw = lay_gia_tri_theo_tu_khoa(df, "Ngày đăng ký")
     dia_diem_luu_kho = lay_gia_tri_theo_tu_khoa(df, "Địa điểm lưu kho")
     ma_hq = dia_diem_luu_kho[:4] if dia_diem_luu_kho else ""
     ngay_tk = ngay_raw[:10] if ngay_raw else ""
-    return ma_dn, so_tk, ngay_tk, ma_hq
+    return [ma_dn, so_tk, ngay_tk, ma_hq]
 
-# --- GIAO DIỆN STREAMLIT ---
-uploaded_files = st.file_uploader("Tải file Excel (chọn 1 hoặc nhiều file)", type=["xlsx", "xls"], accept_multiple_files=True)
+uploaded_files = st.file_uploader("Tải file Excel", type=["xlsx", "xls"], accept_multiple_files=True)
 
 if uploaded_files:
     data_list = []
     for f in uploaded_files:
-        d = trich_xuat_du_lieu(f)
-        data_list.append({"File": f.name, "MST": d[0], "Số TK": d[1], "Ngày": d[2], "Mã HQ": d[3]})
+        res = trich_xuat_du_lieu(f)
+        data_list.append({"File": f.name, "MST": res[0], "Số TK": res[1], "Ngày": res[2], "Mã HQ": res[3]})
     
-    df_tong_hop = pd.DataFrame(data_list)
-    st.subheader("📋 Danh sách dữ liệu bóc tách")
-    st.dataframe(df_tong_hop, use_container_width=True)
+    df_result = pd.DataFrame(data_list)
+    st.table(df_result)
 
-    # Chọn tờ khai muốn điền
-    selected_file = st.selectbox("Chọn tờ khai để điền vào web:", df_tong_hop["File"])
+    target_file = st.selectbox("Chọn file muốn chạy:", df_result["File"])
 
-    if st.button("🔥 Mở trình duyệt & Điền Form"):
-        row = df_tong_hop[df_tong_hop["File"] == selected_file].iloc[0]
+    if st.button("🔥 Chạy trên Server"):
+        row = df_result[df_result["File"] == target_file].iloc[0]
         
-        with st.status("Đang khởi động Chrome...", expanded=True) as status:
-            options = Options()
-            options.add_experimental_option("detach", True) # Giữ trình duyệt sau khi chạy
-            driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
-            driver.get("https://pus.customs.gov.vn/faces/ContainerBarcode")
-            driver.maximize_window()
+        # --- ĐÂY LÀ CHỖ THÊM CODE MỚI ---
+        options = Options()
+        options.add_argument("--headless") 
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--disable-gpu")
+        options.add_argument("--window-size=1920x1080")
 
-            wait = WebDriverWait(driver, 20)
+        try:
+            # Thử khởi tạo theo môi trường Linux của Streamlit Cloud
             try:
-                # Chờ các ô nhập liệu xuất hiện
-                wait.until(EC.presence_of_element_located((By.TAG_NAME, "input")))
-                inputs = driver.find_elements(By.TAG_NAME, "input")
-                visible_inputs = [i for i in inputs if i.is_displayed() and i.get_attribute("type") == "text"]
+                service = Service("/usr/bin/chromium-browser")
+                driver = webdriver.Chrome(service=service, options=options)
+            except:
+                driver = webdriver.Chrome(options=options)
+            
+            driver.get("https://pus.customs.gov.vn/faces/ContainerBarcode")
+            
+            # Điền form ẩn (Headless)
+            wait = WebDriverWait(driver, 15)
+            wait.until(EC.presence_of_element_located((By.TAG_NAME, "input")))
+            inputs = driver.find_elements(By.TAG_NAME, "input")
+            visible_inputs = [i for i in inputs if i.is_displayed() and i.get_attribute("type") == "text"]
+
+            if len(visible_inputs) >= 4:
+                vals = [row["MST"], row["Số TK"], row["Mã HQ"], row["Ngày"]]
+                for idx, v in enumerate(vals):
+                    driver.execute_script("arguments[0].value = arguments[1];", visible_inputs[idx], v)
                 
-                if len(visible_inputs) >= 4:
-                    st.write(f"📝 Đang điền dữ liệu cho file: {selected_file}")
-                    vals = [row["MST"], row["Số TK"], row["Mã HQ"], row["Ngày"]]
-                    for idx, v in enumerate(vals):
-                        driver.execute_script("arguments[0].value = arguments[1];", visible_inputs[idx], v)
-                    
-                    status.update(label="✅ Đã điền xong! Hãy tự nhấn nút 'Lấy thông tin'.", state="complete")
-                    st.success("Hệ thống đã điền xong thông tin. Bạn hãy kiểm tra lại và nhấn nút 'Lấy thông tin' trên trình duyệt Chrome nhé!")
-                else:
-                    st.error("❌ Không tìm thấy đủ các ô nhập liệu trên trang web.")
-            except Exception as e:
-                st.error(f"Lỗi Selenium: {e}")
+                st.success("✅ Server đã điền xong dữ liệu ngầm!")
+                st.warning("⚠️ Lưu ý: Vì chạy ẩn trên mạng nên bạn sẽ không thấy trình duyệt hiện ra để nhập Captcha.")
+            
+            driver.quit() # Đóng trình duyệt ẩn
+        except Exception as e:
+            st.error(f"Lỗi khởi tạo trình duyệt trên Cloud: {e}")
