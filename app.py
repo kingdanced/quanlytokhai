@@ -52,50 +52,57 @@ if uploaded_files:
     
     df_result = pd.DataFrame(data_list)
 
-    # --- HIỂN THỊ CHI TIẾT ---
     st.divider()
     st.subheader("📋 Chi tiết thông tin trích xuất")
     
-    target_file = st.selectbox("Chọn file muốn chạy:", df_result["File"])
+    target_file = st.selectbox("Chọn file muốn xem:", df_result["File"])
     row = df_result[df_result["File"] == target_file].iloc[0]
 
-    # Dùng st.code để tự động có nút copy bên cạnh mỗi ô dữ liệu
+    # Hiển thị với nút Copy tự động (st.code)
     col1, col2 = st.columns(2)
     with col1:
         st.write("**Mã số thuế**")
         st.code(row['MST'], language="text")
-        
         st.write("**Số tờ khai**")
         st.code(row['Số TK'], language="text")
     with col2:
         st.write("**Ngày đăng ký**")
         st.code(row['Ngày'], language="text")
-        
         st.write("**Mã Hải quan**")
         st.code(row['Mã HQ'], language="text")
 
     st.divider()
 
-    if st.button("🔥 Chạy trên Server"):
+    if st.button("🔥 Tự động điền Form (Server)"):
         options = Options()
-        options.add_argument("--headless") 
+        options.add_argument("--headless")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-gpu")
-        options.add_argument("--window-size=1920x1080")
-
+        
         try:
-            try:
-                service = Service("/usr/bin/chromium-browser")
-                driver = webdriver.Chrome(service=service, options=options)
-            except:
-                driver = webdriver.Chrome(options=options)
+            # Đường dẫn chuẩn cho Streamlit Cloud
+            service = Service("/usr/bin/chromium-driver")
+            driver = webdriver.Chrome(service=service, options=options)
             
             driver.get("https://pus.customs.gov.vn/faces/ContainerBarcode")
             
-            wait = WebDriverWait(driver, 15)
+            wait = WebDriverWait(driver, 20)
             wait.until(EC.presence_of_element_located((By.TAG_NAME, "input")))
+            
             inputs = driver.find_elements(By.TAG_NAME, "input")
             visible_inputs = [i for i in inputs if i.is_displayed() and i.get_attribute("type") == "text"]
 
-            if len(visible_
+            if len(visible_inputs) >= 4:
+                vals = [row["MST"], row["Số TK"], row["Mã HQ"], row["Ngày"]]
+                for idx, v in enumerate(vals):
+                    driver.execute_script("arguments[0].value = arguments[1];", visible_inputs[idx], v)
+                
+                st.success("✅ Đã điền xong dữ liệu!")
+                st.warning("⚠️ Vui lòng gõ mã Captcha để hoàn tất tra cứu.")
+            else:
+                st.error("Không tìm thấy đủ các ô nhập liệu trên trang web.")
+            
+            driver.quit()
+        except Exception as e:
+            st.error(f"Lỗi khởi tạo trình duyệt: {e}")
