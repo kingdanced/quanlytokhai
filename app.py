@@ -52,21 +52,27 @@ if uploaded_files:
     
     df_result = pd.DataFrame(data_list)
 
-    # --- TRÌNH BÀY DỌC ---
+    # --- HIỂN THỊ CHI TIẾT ---
     st.divider()
     st.subheader("📋 Chi tiết thông tin trích xuất")
     
     target_file = st.selectbox("Chọn file muốn chạy:", df_result["File"])
     row = df_result[df_result["File"] == target_file].iloc[0]
 
-    # Hiển thị dữ liệu dọc dạng Card
+    # Dùng st.code để tự động có nút copy bên cạnh mỗi ô dữ liệu
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown(f"**Mã số thuế:** `{row['MST']}`")
-        st.markdown(f"**Số tờ khai:** `{row['Số TK']}`")
+        st.write("**Mã số thuế**")
+        st.code(row['MST'], language="text")
+        
+        st.write("**Số tờ khai**")
+        st.code(row['Số TK'], language="text")
     with col2:
-        st.markdown(f"**Ngày đăng ký:** `{row['Ngày']}`")
-        st.markdown(f"**Mã Hải quan:** `{row['Mã HQ']}`")
+        st.write("**Ngày đăng ký**")
+        st.code(row['Ngày'], language="text")
+        
+        st.write("**Mã Hải quan**")
+        st.code(row['Mã HQ'], language="text")
 
     st.divider()
 
@@ -79,7 +85,6 @@ if uploaded_files:
         options.add_argument("--window-size=1920x1080")
 
         try:
-            # Thử khởi tạo trình duyệt
             try:
                 service = Service("/usr/bin/chromium-browser")
                 driver = webdriver.Chrome(service=service, options=options)
@@ -93,14 +98,4 @@ if uploaded_files:
             inputs = driver.find_elements(By.TAG_NAME, "input")
             visible_inputs = [i for i in inputs if i.is_displayed() and i.get_attribute("type") == "text"]
 
-            if len(visible_inputs) >= 4:
-                vals = [row["MST"], row["Số TK"], row["Mã HQ"], row["Ngày"]]
-                for idx, v in enumerate(vals):
-                    driver.execute_script("arguments[0].value = arguments[1];", visible_inputs[idx], v)
-                
-                st.success("✅ Đã điền xong dữ liệu lên trang web Hải quan!")
-                st.warning("⚠️ Lưu ý: Vì chạy Headless (ẩn), bạn cần tích hợp giải Captcha để tiếp tục.")
-            
-            driver.quit()
-        except Exception as e:
-            st.error(f"Lỗi khởi tạo trình duyệt: {e}")
+            if len(visible_
